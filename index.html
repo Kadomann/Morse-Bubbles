@@ -1,0 +1,1409 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Morse-Blasen</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#07202E" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#DCEFF3" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Morse-Blasen">
+<style>
+:root{
+  --bg:#DCEFF3; --bg-deep:#B3DCE6; --ink:#0D3242; --muted:#4A6B78;
+  --accent:#00866F; --accent-ink:#FFFFFF; --warn:#C98A00; --bad:#C8304B;
+  --panel:#F5FBFC; --line:rgba(13,50,66,.16); --rim:rgba(13,50,66,.30);
+  --shine:rgba(255,255,255,.95); --film1:rgba(0,150,190,.16); --film2:rgba(190,80,190,.20);
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#07202E; --bg-deep:#0E3C50; --ink:#E3F6FA; --muted:#8FB4C0;
+    --accent:#5CE1C6; --accent-ink:#07202E; --warn:#FFC94A; --bad:#FF6B7A;
+    --panel:#0B2B3B; --line:rgba(227,246,250,.14); --rim:rgba(200,240,255,.45);
+    --shine:rgba(255,255,255,.85); --film1:rgba(110,220,255,.20); --film2:rgba(255,150,230,.24);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#07202E; --bg-deep:#0E3C50; --ink:#E3F6FA; --muted:#8FB4C0;
+  --accent:#5CE1C6; --accent-ink:#07202E; --warn:#FFC94A; --bad:#FF6B7A;
+  --panel:#0B2B3B; --line:rgba(227,246,250,.14); --rim:rgba(200,240,255,.45);
+  --shine:rgba(255,255,255,.85); --film1:rgba(110,220,255,.20); --film2:rgba(255,150,230,.24);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  height:100%;margin:0;background:var(--bg);color:var(--ink);
+  font-family:ui-rounded,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit}
+
+.app{height:100%;max-width:1120px;margin:0 auto;padding:12px 16px;display:grid;grid-template-rows:auto 1fr auto;gap:12px}
+
+/* Kopfzeile */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
+.top h1{margin:0;font-size:clamp(1.5rem,3.2vw,2.1rem);font-weight:800;letter-spacing:-.025em;font-variation-settings:"opsz" 96}
+.hud{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.stat{display:flex;flex-direction:column;align-items:flex-start;min-width:3.2em}
+.stat .v{font-size:1.45rem;font-weight:750;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .k{font-size:.8rem;color:var(--muted)}
+.lives{display:flex;gap:6px;height:1.6rem;align-items:center}
+.life{width:18px;height:18px;border-radius:50%;
+  background:radial-gradient(circle at 32% 30%,var(--shine) 0 12%,transparent 26%),radial-gradient(circle,transparent 45%,var(--film1) 65%,var(--film2) 85%,var(--rim) 100%);
+  box-shadow:inset 0 0 0 1.5px var(--accent);transition:opacity .3s,transform .3s}
+.life.lost{opacity:.25;transform:scale(.7);box-shadow:inset 0 0 0 1.5px var(--rim)}
+.icon{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;border:1.5px solid var(--line);background:transparent;cursor:pointer}
+.icon:hover{border-color:var(--accent)}
+.icon:focus-visible,.btn:focus-visible,.chip:focus-visible,.mini:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+
+/* Becken */
+.tank{position:relative;min-height:340px;border-radius:30px;overflow:hidden;border:1px solid var(--line);
+  background:radial-gradient(130% 100% at 50% -10%,var(--bg-deep),var(--bg) 72%)}
+.field{position:absolute;inset:0}
+.timer{position:absolute;left:0;right:0;top:0;height:6px;background:var(--line);z-index:2}
+.timer .fill{height:100%;background:var(--accent);transform-origin:left center;transform:scaleX(0)}
+.timer.low .fill{background:var(--warn)}
+.listen{position:absolute;top:18px;left:20px;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.95rem;opacity:0;transition:opacity .15s;z-index:2}
+.listen.on{opacity:1}
+.tankctl{position:absolute;top:12px;right:12px;display:flex;gap:8px;z-index:2}
+.tankctl .icon{background:var(--panel)}
+.listen .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);animation:ping 1s ease-out infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
+
+/* Blasen */
+.bubble{position:absolute;width:var(--s);height:var(--s);padding:0;border:0;background:none;border-radius:50%;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;animation:appear .42s cubic-bezier(.2,1.5,.45,1) both}
+.bubble .orb{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;
+  animation:drift var(--dur) ease-in-out var(--delay) infinite alternate;
+  background:
+    radial-gradient(circle at 31% 27%,var(--shine) 0 5%,transparent 12%),
+    radial-gradient(circle at 70% 76%,rgba(255,255,255,.35) 0 3%,transparent 8%),
+    radial-gradient(circle,transparent 50%,var(--film1) 68%,var(--film2) 86%,var(--rim) 99%);
+  box-shadow:inset 0 0 0 1.5px var(--rim);transition:box-shadow .15s}
+.bubble:hover .orb{box-shadow:inset 0 0 0 2.5px var(--accent)}
+.bubble:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+.lbl{font-size:calc(var(--s) * .42);font-weight:750;line-height:1;letter-spacing:-.02em;font-variation-settings:"opsz" 96}
+.lbl.small{font-size:calc(var(--s) * .27)}
+.lbl.tiny{font-size:calc(var(--s) * .19);letter-spacing:0}
+.ps{text-decoration:overline;text-decoration-thickness:.08em;text-underline-offset:.1em}
+.bubble.done{pointer-events:none}
+.bubble.pop{animation:pop .36s ease-out forwards}
+.bubble.vanish{animation:vanish .9s ease-in forwards}
+.bubble.leave{animation:leave .45s ease-in forwards}
+.bubble.wrong{animation:shake .38s ease-in-out}
+.bubble.wrong .orb{box-shadow:inset 0 0 0 3px var(--bad)}
+.bubble.reveal .orb{box-shadow:inset 0 0 0 3px var(--accent),0 0 26px color-mix(in srgb,var(--accent) 55%,transparent)}
+@keyframes appear{from{transform:scale(.15);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes drift{from{transform:translate(calc(var(--dx) * -1),calc(var(--dy) * -1))}to{transform:translate(var(--dx),var(--dy))}}
+@keyframes pop{0%{transform:scale(1);opacity:1}55%{transform:scale(1.3);opacity:.7}100%{transform:scale(1.6);opacity:0}}
+@keyframes vanish{to{transform:translateY(-60px) scale(.25);opacity:0}}
+@keyframes leave{to{transform:scale(.8);opacity:0}}
+@keyframes shake{25%{transform:translateX(-7px)}50%{transform:translateX(7px)}75%{transform:translateX(-4px)}}
+
+.float{position:absolute;transform:translate(-50%,-50%);font-weight:800;font-size:1.5rem;color:var(--accent);pointer-events:none;animation:rise .9s ease-out forwards;font-variant-numeric:tabular-nums;z-index:3}
+.float.bad{color:var(--bad)}
+@keyframes rise{to{transform:translate(-50%,-140%);opacity:0}}
+
+.toast{position:absolute;left:50%;bottom:18px;transform:translate(-50%,8px);display:flex;align-items:center;gap:14px;
+  padding:9px 20px;border-radius:999px;background:var(--panel);border:1px solid var(--line);
+  opacity:0;transition:opacity .2s,transform .2s;z-index:3;pointer-events:none;
+  flex-wrap:wrap;justify-content:center;width:max-content;max-width:calc(100% - 24px)}
+.toast .mean{color:var(--muted)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast .big{font-weight:800;font-size:1.3rem}
+
+/* Morsecode-Darstellung */
+.code{display:inline-flex;align-items:center;gap:4px}
+.code i{display:block;height:8px;border-radius:4px;background:currentColor}
+.code i.d{width:8px}
+.code i.a{width:24px}
+.code i.g{width:6px;background:none}
+.code.sm{gap:2px}
+.code.sm i{height:4px}
+.code.sm i.d{width:4px}
+.code.sm i.a{width:11px}
+.code.sm i.g{width:3px}
+.chip .mean{font-size:.72rem;font-weight:500;color:var(--muted);line-height:1.2;max-width:9.5em;text-align:center}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:3px;border:1.5px solid var(--line);border-radius:999px}
+.seg button{white-space:nowrap;border:0;background:transparent;border-radius:999px;padding:6px 4px;min-height:36px;font-size:.9rem;font-weight:650;color:var(--muted);cursor:pointer}
+@media (max-width:440px){.seg{grid-template-columns:1fr;border-radius:20px}}
+.seg button[aria-checked="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* Overlays */
+.overlay{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;align-items:safe center;padding:20px;z-index:5;
+  background:color-mix(in srgb,var(--bg) 72%,transparent);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);overflow:auto}
+.card{width:min(480px,100%);min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:26px;padding:28px 26px;text-align:center}
+.card h2{margin:0 0 10px;font-size:clamp(1.5rem,4vw,2.1rem);font-weight:800;letter-spacing:-.025em;line-height:1.1;font-variation-settings:"opsz" 96}
+.card p{margin:0 0 14px;line-height:1.5;color:var(--muted)}
+.card .meta{font-size:.92rem}
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+.btn{border-radius:999px;padding:12px 22px;border:1.5px solid var(--line);background:transparent;font-weight:700;cursor:pointer;min-height:44px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.final{font-size:3.4rem;font-weight:800;letter-spacing:-.03em;line-height:1;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+.record{color:var(--accent);font-weight:700;margin:0 0 6px}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}
+.facts div{display:flex;flex-direction:column;gap:2px}
+.facts b{font-size:1.2rem;font-variant-numeric:tabular-nums}
+.facts span{font-size:.8rem;color:var(--muted)}
+.practice{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;margin-top:6px}
+.practice span{display:inline-flex;align-items:center;gap:8px;font-weight:750}
+.warnmsg{color:var(--bad);font-size:.92rem;margin:0}
+
+/* Startauswahl und Einführung neuer Zeichen */
+.card.wide{width:min(760px,100%)}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px;margin:18px 0 4px;text-align:left}
+.mode{border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.mode h3{margin:0;font-size:1.15rem;font-weight:750}
+.card .mode p{margin:0}
+.mode .btn{margin-top:auto;align-self:flex-start}
+.intro{display:flex;justify-content:center;flex-wrap:wrap;gap:20px 44px;margin:16px 0 20px}
+.intro div{display:flex;flex-direction:column;align-items:center;gap:14px}
+.introLbl{font-size:3.6rem;font-weight:800;line-height:1}
+
+/* Fußzeile */
+.hints{display:flex;gap:6px 22px;flex-wrap:wrap;color:var(--muted);font-size:.88rem;align-items:center}
+.hints .grow{margin-left:auto}
+@media (pointer:coarse){.hints span:not(.grow){display:none}}
+kbd{font:inherit;font-size:.82rem;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 6px;color:var(--ink)}
+
+/* Einstellungen */
+dialog{width:min(760px,94vw);max-height:88dvh;padding:0;border:1px solid var(--line);border-radius:26px;background:var(--panel);color:var(--ink)}
+dialog::backdrop{background:rgba(2,18,27,.55)}
+.dlg{display:flex;flex-direction:column;max-height:88dvh}
+.dlg-head{display:flex;justify-content:space-between;align-items:center;padding:20px 24px 12px;border-bottom:1px solid var(--line)}
+.dlg-head h2{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
+.dlg-body{overflow:auto;padding:8px 24px 20px}
+.dlg-foot{padding:14px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+.dlg h3{font-size:1.1rem;margin:22px 0 10px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px 28px}
+.field-r{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:baseline}
+.field-r label{font-weight:600}
+.field-r output{font-variant-numeric:tabular-nums;color:var(--muted)}
+.field-r input{grid-column:1/-1;width:100%;accent-color:var(--accent);height:28px}
+.field-r small{grid-column:1/-1;color:var(--muted);font-size:.82rem}
+.check{display:flex;gap:10px;align-items:center;font-weight:600;min-height:44px}
+.check input{width:20px;height:20px;accent-color:var(--accent)}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.group{margin-top:16px}
+.group-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.group-head h4{margin:0 auto 0 0;font-size:1rem}
+.mini{border:1px solid var(--line);background:transparent;border-radius:999px;padding:4px 12px;font-size:.85rem;cursor:pointer;min-height:32px}
+.mini:hover{border-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-width:46px;min-height:46px;padding:6px 8px;border-radius:14px;border:1.5px solid var(--line);background:transparent;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-weight:750;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--ink);background:color-mix(in srgb,var(--accent) 15%,transparent)}
+.note{color:var(--muted);font-size:.86rem;margin:6px 0 0}
+
+@media (max-width:640px){
+  .app{padding:10px 10px}
+  .hud{gap:14px}
+  .stat .v{font-size:1.2rem}
+  .hints .grow{margin-left:0}
+  .tank{border-radius:22px}
+}
+@media (prefers-reduced-motion:reduce){
+  .bubble .orb,.listen .dot{animation:none}
+  .bubble,.bubble.pop,.bubble.vanish,.bubble.leave,.bubble.wrong,.float{animation-duration:.01ms}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>Morse-Blasen</h1>
+    <div class="hud">
+      <div class="stat"><span class="v" id="score">0</span><span class="k">Punkte</span></div>
+      <div class="stat" id="statBest"><span class="v" id="best">0</span><span class="k">Bestwert</span></div>
+      <div class="stat"><span class="v" id="level">1</span><span class="k" id="levelLabel">Stufe</span></div>
+      <div class="stat"><span class="v" id="streak">0</span><span class="k">Serie</span></div>
+      <div class="stat" id="statAcc" hidden><span class="v" id="acc">–</span><span class="k" id="accLabel">Quote</span></div>
+      <div class="stat" id="statLives"><span class="lives" id="lives"></span><span class="k">Leben</span></div>
+      <button class="icon" id="btnSettings" aria-label="Einstellungen öffnen" title="Einstellungen">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="9" cy="7" r="2.5" fill="var(--panel)"/><circle cx="15" cy="17" r="2.5" fill="var(--panel)"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="tank" id="tank">
+    <div class="timer" id="timer"><div class="fill" id="timerFill"></div></div>
+    <div class="listen" id="listen" aria-live="polite"><span class="dot"></span><span>Hör hin …</span></div>
+    <div class="tankctl" id="tankctl" hidden>
+      <button class="icon" id="btnReplay" aria-label="Nochmal anhören" title="Nochmal anhören (Leertaste)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+      </button>
+      <button class="icon" id="btnPause" aria-label="Pause" title="Pause (Esc)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      </button>
+    </div>
+    <div class="field" id="field"></div>
+    <div class="toast" id="toast" aria-live="polite"></div>
+
+    <div class="overlay" id="ovStart">
+      <div class="card wide">
+        <h2>Hör das Zeichen. Triff die Blase.</h2>
+        <p>Jede Runde erklingt ein Morsezeichen. Klick so schnell wie möglich die Blase mit dem passenden Zeichen.</p>
+        <div class="modes">
+          <section class="mode">
+            <h3>Freies Spiel</h3>
+            <div class="seg" role="radiogroup" aria-label="Was abgefragt wird">
+              <button type="button" role="radio" aria-checked="true" data-content="chars">Zeichen</button>
+              <button type="button" role="radio" aria-checked="false" data-content="q">Q-Gruppen</button>
+              <button type="button" role="radio" aria-checked="false" data-content="calls">Rufzeichen</button>
+            </div>
+            <p>Einzelzeichen, Q-Gruppen oder zufällige Rufzeichen, Punkte nach Tempo. Platzt eine Blase ungeklickt oder triffst du daneben, kostet das ein Leben. Nach drei Fehlern ist Schluss.</p>
+            <p class="meta" id="startInfo"></p>
+            <p class="warnmsg" id="startWarn" hidden>Wähle in den Einstellungen mindestens zwei Zeichen mit unterschiedlichem Code.</p>
+            <button class="btn primary" id="btnStart">Freies Spiel starten</button>
+          </section>
+          <section class="mode">
+            <h3>Lernmodus nach Koch</h3>
+            <p>Du beginnst mit zwei Zeichen in vollem Tempo. Triffst du 90 % der letzten 20 Runden, kommt ein neues Zeichen dazu. Ohne Leben – du übst, solange du willst.</p>
+            <p class="meta" id="kochInfo"></p>
+            <button class="btn primary" id="btnKoch">Lernmodus starten</button>
+          </section>
+        </div>
+        <div class="actions"><button class="btn" data-open-settings>Einstellungen</button></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="ovPause" hidden>
+      <div class="card">
+        <h2>Pause</h2>
+        <p>Weiter geht es mit einer neuen Runde – ohne Abzug.</p>
+        <div class="actions">
+          <button class="btn primary" id="btnResume">Weiterspielen</button>
+          <button class="btn" id="btnRestart">Neu starten</button>
+          <button class="btn" id="btnQuit">Beenden</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="ovOver" hidden>
+      <div class="card">
+        <h2 id="overTitle">Spiel vorbei</h2>
+        <div class="final" id="finalScore">0</div>
+        <p class="record" id="newRecord" hidden>Neuer Bestwert!</p>
+        <p class="meta" id="overKoch" hidden></p>
+        <div class="facts">
+          <div><b id="fHits">0</b><span>Treffer</span></div>
+          <div><b id="fAvg">–</b><span>Ø Reaktionszeit</span></div>
+          <div><b id="fStreak">0</b><span>Beste Serie</span></div>
+        </div>
+        <div id="practiceWrap" hidden>
+          <p>Diese Zeichen solltest du üben:</p>
+          <div class="practice" id="practice"></div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="btnAgain">Nochmal spielen</button>
+          <button class="btn" id="btnMenu">Zum Menü</button>
+        </div>
+      </div>
+    </div>
+    <div class="overlay" id="ovIntro" hidden>
+      <div class="card">
+        <h2 id="introTitle">Neues Zeichen</h2>
+        <div class="intro" id="introChars"></div>
+        <p id="introNote"></p>
+        <div class="actions">
+          <button class="btn" id="btnIntroPlay">Nochmal anhören</button>
+          <button class="btn primary" id="btnIntroGo">Weiter</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="hints">
+    <span><kbd>Leertaste</kbd> nochmal hören</span>
+    <span><kbd>Esc</kbd> Pause</span>
+    <span class="grow" id="speedInfo"></span>
+  </footer>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <div class="dlg">
+    <div class="dlg-head">
+      <h2 id="dlgTitle">Einstellungen</h2>
+      <button class="icon" id="btnClose" aria-label="Einstellungen schließen">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="dlg-body">
+      <h3>Tempo und Ton</h3>
+      <div class="grid2">
+        <div class="field-r"><label for="wpm">Zeichentempo</label><output id="o_wpm"></output><input type="range" id="wpm" min="5" max="50" step="1"></div>
+        <div class="field-r"><label for="effWpm">Effektives Tempo</label><output id="o_effWpm"></output><input type="range" id="effWpm" min="5" max="50" step="1"><small>Farnsworth: Zeichen bleiben schnell, nur die Pausen werden länger.</small></div>
+        <div class="field-r"><label for="freq">Tonhöhe</label><output id="o_freq"></output><input type="range" id="freq" min="300" max="1000" step="10"></div>
+        <div class="field-r"><label for="volume">Lautstärke</label><output id="o_volume"></output><input type="range" id="volume" min="0" max="100" step="1"></div>
+      </div>
+      <div class="row" style="margin-top:10px"><button class="mini" id="btnTest">Probe hören: PARIS</button></div>
+
+      <h3>Spiel</h3>
+      <div class="grid2">
+        <div class="field-r"><label for="timeLimit">Zeitlimit pro Blase</label><output id="o_timeLimit"></output><input type="range" id="timeLimit" min="1.5" max="10" step="0.5"><small>Zählt ab dem Ende des Morsezeichens.</small></div>
+        <div class="field-r"><label for="bubbles">Blasen zu Beginn</label><output id="o_bubbles"></output><input type="range" id="bubbles" min="2" max="10" step="1"><small>Alle 10 Treffer kommt eine Blase dazu, höchstens 10.</small></div>
+      </div>
+      <label class="check"><input type="checkbox" id="wrongCostsLife"> Falscher Klick kostet ein Leben</label>
+      <label class="check"><input type="checkbox" id="adaptive"> Schwierige Zeichen häufiger abfragen</label>
+      <p class="note">Zeichen, bei denen du länger brauchst oder die du verpasst, kommen öfter dran. Der Lernstand bleibt über Spiele hinweg erhalten.</p>
+      <label class="check"><input type="checkbox" id="similar"> Ähnlich klingende Zeichen gemeinsam zeigen</label>
+      <p class="note">Bevorzugt Blasen, deren Code sich nur in einem Element vom gesuchten unterscheidet (etwa B und 6, C und Y), sowie Zeichen, die du schon einmal verwechselt hast.</p>
+      <div class="row" style="margin-top:8px"><button class="mini" id="btnResetStats">Lernstand zurücksetzen</button><span class="note" id="statsInfo" style="margin:0"></span></div>
+
+      <h3>Lernmodus (Koch)</h3>
+      <div class="grid2">
+        <div class="field-r"><label for="kochLevel">Freigeschaltete Zeichen</label><output id="o_kochLevel"></output><input type="range" id="kochLevel" min="2" max="40" step="1"><small id="kochNext"></small></div>
+      </div>
+      <p class="note">Reihenfolge wie bei LCWO: K M U R E S N A P T L W I . J Z = F O Y , V G 5 / Q 9 2 H 3 8 B ? 4 7 C 1 D 6 0 X. Verwendet werden nur Zeichen, die unten aktiv sind; weitere aktive Zeichen kommen am Ende dazu.</p>
+
+      <h3>Zeichen</h3>
+      <div class="row">
+        <span id="activeCount" style="margin-right:auto;font-weight:600"></span>
+        <button class="mini" id="btnDefaults">Standard</button>
+        <button class="mini" id="btnAllChars">Alle</button>
+        <button class="mini" id="btnNoChars">Keine</button>
+      </div>
+      <p class="note">Zeichen mit identischem Code (etwa + und AR) erscheinen nie gleichzeitig in einer Runde.</p>
+      <div id="groups"></div>
+
+      <h3>Q-Gruppen</h3>
+      <div class="row">
+        <span id="activeQCount" style="margin-right:auto;font-weight:600"></span>
+        <button class="mini" id="btnQDefaults">Standard</button>
+        <button class="mini" id="btnQAll">Alle</button>
+        <button class="mini" id="btnQNone">Keine</button>
+      </div>
+      <p class="note">Werden im freien Spiel mit der Auswahl „Q-Gruppen“ abgefragt. Nach einem Fehler siehst du die Bedeutung.</p>
+      <div class="chips" id="qchips" style="margin-top:10px"></div>
+
+      <h3>Rufzeichen</h3>
+      <label class="check"><input type="checkbox" id="callsDE"> Nur deutsche Rufzeichen</label>
+      <p class="note">Sonst gemischt aus aller Welt, etwa ein Drittel deutsch. Ist „Ähnlich klingende Zeichen gemeinsam zeigen“ aktiv, unterscheiden sich die meisten Blasen vom gesuchten Rufzeichen nur in einem Zeichen.</p>
+    </div>
+    <div class="dlg-foot"><button class="btn primary" id="btnDone">Fertig</button></div>
+  </div>
+</dialog>
+
+<!-- ===================================================================
+     MorseEngine – wiederverwendbar für weitere Morse-Spiele
+     window.MorseEngine = {
+       CHARS, GROUPS, DEFAULT_KEYS,
+       get(key), byGroup(id), tokenize(text), encode(text), decode(code),
+       timing({wpm, effWpm}), schedule(input, opts), duration(input, opts),
+       MorsePlayer
+     }
+     =================================================================== -->
+<script>
+window.MorseEngine = (() => {
+  'use strict';
+
+  const GROUPS = [
+    { id: 'letters',  name: 'Buchstaben' },
+    { id: 'digits',   name: 'Ziffern' },
+    { id: 'punct',    name: 'Satzzeichen' },
+    { id: 'intl',     name: 'Umlaute und Sonderbuchstaben' },
+    { id: 'prosigns', name: 'Betriebszeichen' },
+  ];
+
+  // [key, code, group, label?]  – key: so wird das Zeichen intern adressiert.
+  // Betriebszeichen haben Keys in spitzen Klammern, z. B. "<AR>".
+  const RAW = [
+    ['A','.-','letters'],['B','-...','letters'],['C','-.-.','letters'],['D','-..','letters'],
+    ['E','.','letters'],['F','..-.','letters'],['G','--.','letters'],['H','....','letters'],
+    ['I','..','letters'],['J','.---','letters'],['K','-.-','letters'],['L','.-..','letters'],
+    ['M','--','letters'],['N','-.','letters'],['O','---','letters'],['P','.--.','letters'],
+    ['Q','--.-','letters'],['R','.-.','letters'],['S','...','letters'],['T','-','letters'],
+    ['U','..-','letters'],['V','...-','letters'],['W','.--','letters'],['X','-..-','letters'],
+    ['Y','-.--','letters'],['Z','--..','letters'],
+
+    ['0','-----','digits'],['1','.----','digits'],['2','..---','digits'],['3','...--','digits'],
+    ['4','....-','digits'],['5','.....','digits'],['6','-....','digits'],['7','--...','digits'],
+    ['8','---..','digits'],['9','----.','digits'],
+
+    ['.','.-.-.-','punct'],[',','--..--','punct'],['?','..--..','punct'],["'",'.----.','punct'],
+    ['!','-.-.--','punct'],['/','-..-.','punct'],['(','-.--.','punct'],[')','-.--.-','punct'],
+    ['&','.-...','punct'],[':','---...','punct'],[';','-.-.-.','punct'],['=','-...-','punct'],
+    ['+','.-.-.','punct'],['-','-....-','punct'],['_','..--.-','punct'],['"','.-..-.','punct'],
+    ['$','...-..-','punct'],['@','.--.-.','punct'],
+
+    ['Ä','.-.-','intl'],['Ö','---.','intl'],['Ü','..--','intl'],['CH','----','intl'],
+    ['ß','...--..','intl'],['É','..-..','intl'],['È','.-..-','intl'],['À','.--.-','intl'],
+    ['Ç','-.-..','intl'],['Ñ','--.--','intl'],['Ð','..--.','intl'],['Þ','.--..','intl'],
+    ['Ĝ','--.-.','intl'],['Ĵ','.---.','intl'],
+
+    ['<AR>','.-.-.','prosigns','AR'],['<AS>','.-...','prosigns','AS'],['<BK>','-...-.-','prosigns','BK'],
+    ['<BT>','-...-','prosigns','BT'],['<CL>','-.-..-..','prosigns','CL'],['<CT>','-.-.-','prosigns','CT'],
+    ['<KN>','-.--.','prosigns','KN'],['<SK>','...-.-','prosigns','SK'],['<SN>','...-.','prosigns','SN'],
+    ['<SOS>','...---...','prosigns','SOS'],['<HH>','........','prosigns','HH'],
+  ];
+
+  const CHARS = RAW.map(([key, code, group, label]) => Object.freeze({
+    key, code, group, label: label || key, prosign: group === 'prosigns',
+  }));
+  const byKey = new Map(CHARS.map(c => [c.key, c]));
+  const byCode = new Map();
+  for (const c of CHARS) if (!byCode.has(c.code)) byCode.set(c.code, c); // erstes Zeichen gewinnt beim Dekodieren
+
+  const DEFAULT_KEYS = Object.freeze('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,/?'.split(''));
+
+  // Gebräuchliche Q-Gruppen im Amateurfunk
+  const QCODES = Object.freeze([
+    ['QRA', 'Name der Station'], ['QRG', 'Genaue Frequenz'], ['QRH', 'Frequenz schwankt'],
+    ['QRI', 'Tonqualität'], ['QRK', 'Verständlichkeit'], ['QRL', 'Frequenz belegt'],
+    ['QRM', 'Störungen durch Stationen'], ['QRN', 'Atmosphärische Störungen'], ['QRO', 'Leistung erhöhen'],
+    ['QRP', 'Leistung verringern'], ['QRQ', 'Schneller geben'], ['QRS', 'Langsamer geben'],
+    ['QRT', 'Sendung beenden'], ['QRU', 'Nichts mehr für dich'], ['QRV', 'Bereit'],
+    ['QRX', 'Bitte warten'], ['QRZ', 'Wer ruft mich?'], ['QSA', 'Signalstärke'],
+    ['QSB', 'Schwund (Fading)'], ['QSD', 'Gebeweise mangelhaft'], ['QSK', 'Zwischenhören'],
+    ['QSL', 'Empfangsbestätigung'], ['QSO', 'Funkverbindung'], ['QSP', 'Nachricht weiterleiten'],
+    ['QSY', 'Frequenzwechsel'], ['QTC', 'Nachrichten'], ['QTH', 'Standort'], ['QTR', 'Uhrzeit'],
+  ].map(([text, meaning]) => Object.freeze({ text, meaning })));
+
+  const get = key => byKey.get(key) || byKey.get(String(key).toUpperCase()) || null;
+  const byGroup = id => CHARS.filter(c => c.group === id);
+
+  // Text -> Tokens. Leerzeichen werden zu ' ' (Wortpause), <XY> wird zu Betriebszeichen bzw. CH.
+  function tokenize(text) {
+    const out = [];
+    const s = Array.from(String(text));
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (ch === '<') {
+        const j = s.indexOf('>', i);
+        if (j > i) {
+          const inner = s.slice(i + 1, j).join('').toUpperCase();
+          const k = byKey.has('<' + inner + '>') ? '<' + inner + '>' : inner;
+          if (byKey.has(k)) { out.push(k); i = j; continue; }
+        }
+      }
+      if (/\s/.test(ch)) { if (out.length && out[out.length - 1] !== ' ') out.push(' '); continue; }
+      const c = get(ch);
+      if (c) out.push(c.key);
+    }
+    while (out[out.length - 1] === ' ') out.pop();
+    return out;
+  }
+
+  const toTokens = input => Array.isArray(input) ? input : tokenize(input);
+
+  function encode(input) {
+    return toTokens(input).map(t => t === ' ' ? '/' : get(t).code).join(' ').replace(/ \/ /g, ' / ');
+  }
+
+  const decode = code => (byCode.get(String(code).trim()) || null);
+
+  // Macht aus einem Text (Q-Gruppe, Wort, Rufzeichen …) ein abfragbares Element
+  // mit derselben Form wie ein Zeichen: { key, label, code, tokens, …extra }
+  function makeItem(text, extra = {}) {
+    const tokens = tokenize(text);
+    return Object.freeze({ key: String(text), label: String(text), tokens, code: encode(tokens), ...extra });
+  }
+
+  // PARIS-Norm: 1 Dit = 1,2 / WpM Sekunden. Farnsworth nach ARRL, wenn effWpm < wpm.
+  function timing({ wpm = 20, effWpm = null } = {}) {
+    const dit = 1.2 / wpm;
+    let charGap = 3 * dit, wordGap = 7 * dit;
+    if (effWpm && effWpm < wpm) {
+      const ta = (60 * wpm - 37.2 * effWpm) / (effWpm * wpm);
+      charGap = 3 * ta / 19;
+      wordGap = 7 * ta / 19;
+    }
+    return { dit, dah: 3 * dit, symbolGap: dit, charGap, wordGap };
+  }
+
+  // Liefert Zeitplan in Sekunden ab 0: events (Töne) und marks (Zeichengrenzen).
+  function schedule(input, opts = {}) {
+    const T = timing(opts);
+    const events = [], marks = [];
+    let t = 0, lastEnd = 0, pending = 0, first = true;
+    for (const tok of toTokens(input)) {
+      if (tok === ' ') { pending = Math.max(pending, T.wordGap); continue; }
+      const c = get(tok);
+      if (!c) continue;
+      if (!first) t = lastEnd + Math.max(pending, T.charGap);
+      first = false; pending = 0;
+      const mark = { key: c.key, char: c, start: t, end: t };
+      for (const sym of c.code) {
+        const dur = sym === '.' ? T.dit : T.dah;
+        events.push({ start: t, dur, symbol: sym, key: c.key });
+        t += dur; lastEnd = t; t += T.symbolGap;
+      }
+      mark.end = lastEnd;
+      marks.push(mark);
+    }
+    return { events, marks, duration: lastEnd, timing: T };
+  }
+
+  const duration = (input, opts) => schedule(input, opts).duration;
+
+  // Levenshtein-Abstand zweier Codes: Einfügen, Löschen oder Ersetzen eines Elements kostet 1.
+  // Beispiele: B/6 (-... / -....) = 1, C/Y (-.-. / -.--) = 1
+  function codeDistance(a, b) {
+    a = String(a); b = String(b);
+    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++)
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+
+  class MorsePlayer {
+    constructor(opts = {}) {
+      this.opts = { wpm: 20, effWpm: null, freq: 600, volume: 0.6, ...opts };
+      this.ctx = null;
+      this._cur = null;
+      this._session = 0;
+      this.lastStartPerf = 0; // performance.now()-Zeitpunkt, an dem der erste Ton beginnt
+      this.lastEndPerf = 0;   // … und an dem der letzte Ton endet
+    }
+    setOptions(o) { Object.assign(this.opts, o); }
+    get playing() { return !!this._cur; }
+
+    _ensure() {
+      if (!this.ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AC();
+      }
+      return this.ctx;
+    }
+    // Einmal aus einem Klick-Handler aufrufen, damit der Browser Audio erlaubt.
+    async unlock() {
+      const ctx = this._ensure();
+      if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) { /* ignoriert */ } }
+    }
+
+    // Spielt Text oder Token-Array. Promise -> { completed: boolean }
+    // handlers: onSymbol({symbol, key, index}), onChar({key, char, index})
+    async play(input, handlers = {}) {
+      this.stop();
+      const session = ++this._session;
+      const ctx = this._ensure();
+      if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) { /* ignoriert */ } }
+      if (session !== this._session) return { completed: false };
+
+      const sch = schedule(input, this.opts);
+      if (!sch.events.length) return { completed: true };
+
+      const vol = Math.pow(Math.max(0, Math.min(1, this.opts.volume)), 2) * 0.6;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = this.opts.freq;
+      gain.gain.value = 0;
+      osc.connect(gain).connect(ctx.destination);
+
+      const t0 = ctx.currentTime + 0.05;
+      for (const e of sch.events) {
+        const s = t0 + e.start, r = Math.min(0.005, e.dur / 4);
+        gain.gain.setValueAtTime(0, s);
+        gain.gain.linearRampToValueAtTime(vol, s + r);
+        gain.gain.setValueAtTime(vol, s + e.dur - r);
+        gain.gain.linearRampToValueAtTime(0, s + e.dur);
+      }
+      osc.start(t0);
+      osc.stop(t0 + sch.duration + 0.03);
+
+      const perf0 = performance.now() + (t0 - ctx.currentTime) * 1000;
+      this.lastStartPerf = perf0;
+      this.lastEndPerf = perf0 + sch.duration * 1000;
+
+      return new Promise(resolve => {
+        const cur = { osc, gain, timers: [], resolve, finished: false };
+        this._cur = cur;
+        osc.onended = () => {
+          try { osc.disconnect(); gain.disconnect(); } catch (e) { /* ignoriert */ }
+          this._finish(cur, true);
+        };
+        const at = (sec, fn) => cur.timers.push(setTimeout(fn, Math.max(0, perf0 + sec * 1000 - performance.now())));
+        if (handlers.onSymbol) sch.events.forEach((e, i) => at(e.start, () => handlers.onSymbol({ ...e, index: i })));
+        if (handlers.onChar) sch.marks.forEach((m, i) => at(m.start, () => handlers.onChar({ ...m, index: i })));
+      });
+    }
+
+    stop() {
+      this._session++;
+      const cur = this._cur;
+      if (!cur) return;
+      const now = this.ctx.currentTime;
+      const g = cur.gain.gain;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+      g.linearRampToValueAtTime(0, now + 0.008);
+      try { cur.osc.stop(now + 0.02); } catch (e) { /* ignoriert */ }
+      this._finish(cur, false);
+    }
+
+    _finish(cur, completed) {
+      if (cur.finished) return;
+      cur.finished = true;
+      cur.timers.forEach(clearTimeout);
+      if (this._cur === cur) this._cur = null;
+      cur.resolve({ completed });
+    }
+  }
+
+  return Object.freeze({
+    CHARS, GROUPS, DEFAULT_KEYS,
+    get, byGroup, tokenize, encode, decode, timing, schedule, duration, codeDistance,
+    QCODES, makeItem,
+    MorsePlayer,
+  });
+})();
+</script>
+
+<!-- ===================================================================
+     Spiel: Morse-Blasen
+     =================================================================== -->
+<script>
+(() => {
+  'use strict';
+  const E = window.MorseEngine;
+  const $ = id => document.getElementById(id);
+
+  // ---------- Q-Gruppen ----------
+  const Q_ITEMS = E.QCODES.map(q => E.makeItem(q.text, { meaning: q.meaning }));
+  const Q_BY_KEY = new Map(Q_ITEMS.map(q => [q.key, q]));
+  const Q_DEFAULT = ['QRG', 'QRL', 'QRM', 'QRN', 'QRO', 'QRP', 'QRQ', 'QRS', 'QRT', 'QRU', 'QRV', 'QRX', 'QRZ', 'QSB', 'QSK', 'QSL', 'QSO', 'QSY', 'QTH', 'QTR'];
+  const qPool = () => S.activeQ.map(k => Q_BY_KEY.get(k)).filter(Boolean);
+  const itemByKey = k => E.get(k) || Q_BY_KEY.get(k);
+  const tokensOf = c => c.tokens || [c.key];
+
+  // ---------- Einstellungen ----------
+  const STORE = 'morse-blasen-v1';
+  const DEFAULTS = { wpm: 20, effWpm: 20, freq: 600, volume: 60, timeLimit: 5, bubbles: 5, wrongCostsLife: true, adaptive: true, similar: true, callsDE: false, freeContent: 'chars', active: [...E.DEFAULT_KEYS], activeQ: [...Q_DEFAULT] };
+  let S, best = 0, bestQ = 0, bestC = 0, stats = {}, confusions = {}, kochProg = { level: 2, started: false };
+  {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { d = null; }
+    S = { ...DEFAULTS, active: [...DEFAULTS.active], activeQ: [...DEFAULTS.activeQ], ...((d && d.settings) || {}) };
+    S.active = (Array.isArray(S.active) ? S.active : []).filter(k => E.get(k));
+    S.activeQ = (Array.isArray(S.activeQ) ? S.activeQ : []).filter(k => Q_BY_KEY.has(k));
+    if (!['q', 'calls'].includes(S.freeContent)) S.freeContent = 'chars';
+    bestQ = (d && Number(d.bestQ)) || 0;
+    bestC = (d && Number(d.bestC)) || 0;
+    if (S.effWpm > S.wpm) S.effWpm = S.wpm;
+    best = (d && Number(d.best)) || 0;
+    stats = (d && d.stats && typeof d.stats === 'object') ? d.stats : {};
+    confusions = (d && d.confusions && typeof d.confusions === 'object') ? d.confusions : {};
+    if (d && d.koch && typeof d.koch === 'object') kochProg = { level: Number(d.koch.level) || 2, started: !!d.koch.started };
+  }
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ settings: S, best, bestQ, bestC, stats, confusions, koch: kochProg })); } catch (e) { /* ignoriert */ } };
+
+  // ---------- Adaptives Üben ----------
+  // Pro Zeichen ein gleitender Mittelwert der Antwortzeit (ms nach Ende des Codes).
+  // Verpasste Zeichen zählen wie 1,5 × Zeitlimit.
+  function record(key, ms) {
+    if (G.content === 'calls') return; // Rufzeichen sind Einmal-Elemente
+    const st = stats[key];
+    if (st && st.n) { st.avg += 0.35 * (ms - st.avg); st.n++; }
+    else stats[key] = { avg: ms, n: 1 };
+    save();
+  }
+  // Gewicht 0,4 (sofort erkannt) bis 4,9 (verpasst); noch nie abgefragt: 2
+  function weight(c) {
+    const st = stats[c.key];
+    if (!st || !st.n) return 2;
+    return 0.4 + 3 * Math.min(st.avg / (S.timeLimit * 1000), 1.5);
+  }
+  function weightedPick(list, wf = weight) {
+    const w = list.map(wf);
+    let r = Math.random() * w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < list.length; i++) { r -= w[i]; if (r <= 0) return list[i]; }
+    return list[list.length - 1];
+  }
+
+  // ---------- Ähnliche Zeichen ----------
+  // Ablenker werden nach Ähnlichkeit zum Zielzeichen gewichtet:
+  // Code-Abstand 1 → 8, Abstand 2 → 2,5, sonst 1; jede frühere Verwechslung des Paars +4 (max. +12).
+  const pairKey = (a, b) => [a, b].sort().join('|');
+  function confuse(a, b) {
+    if (G.content === 'calls') return;
+    const k = pairKey(a.key, b.key);
+    confusions[k] = (confusions[k] || 0) + 1;
+    save();
+  }
+  function similarity(t, c) {
+    const d = E.codeDistance(t.code, c.code);
+    const base = d === 1 ? 8 : d === 2 ? 2.5 : 1;
+    return base + Math.min(4 * (confusions[pairKey(t.key, c.key)] || 0), 12);
+  }
+
+  const audioOpts = () => ({ wpm: S.wpm, effWpm: S.effWpm < S.wpm ? S.effWpm : null, freq: S.freq, volume: S.volume / 100 });
+  const player = new E.MorsePlayer(audioOpts());
+
+  // ---------- Spielzustand ----------
+  // state: idle | spawn | playing | answer | between | paused | over
+  const G = { state: 'idle', score: 0, lives: 3, level: 1, streak: 0, bestStreak: 0, hits: 0, times: [], missed: new Map(),
+              target: null, bubbles: [], answerStart: 0, round: 0,
+              mode: 'free', content: S.freeContent, window: [], pendingIntro: null, introChars: [] };
+
+  const field = $('field'), tank = $('tank');
+  const fmt = n => n.toLocaleString('de-DE');
+  const secs = ms => (ms / 1000).toFixed(2).replace('.', ',') + ' s';
+  const rand = a => a[Math.floor(Math.random() * a.length)];
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const later = (fn, ms) => { const id = G.round; setTimeout(() => { if (id === G.round) fn(); }, ms); };
+
+  const pool = () => S.active.map(E.get).filter(Boolean);
+  const distinctCount = p => new Set(p.map(c => c.code)).size;
+
+  // Bestwert getrennt nach Inhalt des freien Spiels
+  const getBest = () => G.content === 'q' ? bestQ : G.content === 'calls' ? bestC : best;
+  const setBest = v => { if (G.content === 'q') bestQ = v; else if (G.content === 'calls') bestC = v; else best = v; };
+
+  // ---------- Rufzeichen ----------
+  // Präfix + Ziffer (falls das Präfix keine enthält) + 1–3 Buchstaben, z. B. DL4ABC, G3XY, HB9QW
+  const CALL_DE = ['DL', 'DK', 'DJ', 'DB', 'DC', 'DD', 'DF', 'DG', 'DH', 'DM', 'DO', 'DA'];
+  const CALL_WORLD = ['G', 'M', 'F', 'ON', 'PA', 'OE', 'OK', 'OM', 'SP', 'HA', 'I', 'IK', 'EA', 'CT', 'EI', 'GM', 'LA', 'SM', 'OH', 'OZ',
+    'YO', 'LZ', 'S5', '9A', 'YU', 'HB9', 'UA', 'UR', 'K', 'W', 'N', 'KD', 'WB', 'VE', 'JA', 'VK', 'ZL', 'PY', 'LU', 'ZS'];
+  const LETTERS = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'], DIGITS = [...'0123456789'];
+  function randomCall() {
+    const pre = rand(S.callsDE || Math.random() < 0.33 ? CALL_DE : CALL_WORLD);
+    const digit = pre === 'HB9' ? '' : rand(DIGITS);
+    const len = rand([1, 2, 2, 3, 3, 3]);
+    let suf = '';
+    for (let i = 0; i < len; i++) suf += rand(LETTERS);
+    return pre + digit + suf;
+  }
+  // Ein Zeichen austauschen – bevorzugt gegen eines mit ähnlichem Code (Abstand 1)
+  function mutateCall(call) {
+    const cs = [...call];
+    const i = Math.floor(Math.random() * cs.length);
+    const pool = (DIGITS.includes(cs[i]) ? DIGITS : LETTERS).filter(x => x !== cs[i]);
+    const near = pool.filter(x => E.codeDistance(E.get(x).code, E.get(cs[i]).code) <= 1);
+    cs[i] = rand(near.length && Math.random() < 0.8 ? near : pool);
+    return cs.join('');
+  }
+  function callRound(n) {
+    const target = randomCall();
+    const set = new Set([target]);
+    for (let guard = 0; set.size < n && guard < 200; guard++)
+      set.add(S.similar && Math.random() < 0.7 ? mutateCall(target) : randomCall());
+    const chars = [...set].map(c => E.makeItem(c));
+    return { target: chars[0], chars };
+  }
+
+  // ---------- Koch-Methode ----------
+  // Reihenfolge wie bei LCWO; nur aktive Zeichen, weitere aktive Zeichen werden hinten angehängt.
+  // Neues Zeichen, sobald KOCH_GOAL der letzten KOCH_WINDOW Runden richtig waren.
+  const KOCH_ORDER = 'KMURESNAPTLWI.JZ=FOY,VG5/Q92H38B?47C1D60X'.split('');
+  const KOCH_WINDOW = 20, KOCH_GOAL = 0.9;
+  function kochSeq() {
+    const act = new Set(S.active);
+    const seq = KOCH_ORDER.filter(k => act.has(k));
+    for (const c of E.CHARS) if (act.has(c.key) && !seq.includes(c.key)) seq.push(c.key);
+    return seq.map(E.get);
+  }
+  const kochLevel = () => Math.max(2, Math.min(kochProg.level, kochSeq().length));
+  const currentPool = () => G.mode === 'koch' ? kochSeq().slice(0, kochLevel()) : (G.content === 'q' ? qPool() : pool());
+  function kochResult(ok) {
+    G.window.push(ok);
+    if (G.window.length > KOCH_WINDOW) G.window.shift();
+    const seq = kochSeq();
+    const rate = G.window.filter(Boolean).length / KOCH_WINDOW;
+    if (G.window.length >= KOCH_WINDOW && rate >= KOCH_GOAL && kochLevel() < seq.length) {
+      kochProg.level = kochLevel() + 1;
+      save();
+      G.window = [];
+      G.pendingIntro = [seq[kochProg.level - 1]];
+    }
+  }
+
+  function codeEl(code, small) {
+    const s = document.createElement('span');
+    s.className = 'code' + (small ? ' sm' : '');
+    s.setAttribute('aria-label', code.replace(/\./g, 'dit ').replace(/-/g, 'dah ').trim());
+    for (const sym of code) { const i = document.createElement('i'); i.className = sym === '.' ? 'd' : sym === '-' ? 'a' : 'g'; s.append(i); }
+    return s;
+  }
+  function labelEl(c, cls) {
+    const s = document.createElement('span');
+    s.className = (cls || '') + (c.prosign ? ' ps' : '');
+    s.textContent = c.label;
+    return s;
+  }
+
+  // ---------- HUD ----------
+  function renderHud() {
+    $('score').textContent = fmt(G.score);
+    const koch = G.mode === 'koch';
+    $('statBest').hidden = koch; $('statLives').hidden = koch; $('statAcc').hidden = !koch;
+    $('best').textContent = fmt(Math.max(getBest(), G.score));
+    $('levelLabel').textContent = koch ? 'Zeichen' : 'Stufe';
+    $('level').textContent = koch ? kochLevel() : G.level;
+    if (koch) {
+      const w = G.window;
+      $('acc').textContent = w.length ? Math.round(100 * w.filter(Boolean).length / w.length) + ' %' : '–';
+      $('accLabel').textContent = `Quote (${w.length}/${KOCH_WINDOW})`;
+    }
+    $('streak').textContent = G.streak;
+    const lv = $('lives');
+    lv.replaceChildren(...[0, 1, 2].map(i => { const d = document.createElement('span'); d.className = 'life' + (i < G.lives ? '' : ' lost'); return d; }));
+    lv.setAttribute('aria-label', G.lives + ' von 3 Leben');
+  }
+  function renderInfo() {
+    const fc = S.freeContent, q = fc === 'q', calls = fc === 'calls';
+    const p = q ? qPool() : pool(), n = p.length, ok = calls || distinctCount(p) >= 2;
+    const what = q ? 'Q-Gruppen' : 'Zeichen';
+    const tempo = S.effWpm < S.wpm ? `${S.wpm} WpM, effektiv ${S.effWpm} WpM` : `${S.wpm} WpM`;
+    $('speedInfo').textContent = calls ? `${tempo}, zufällige Rufzeichen` : `${tempo}, ${n} ${what} aktiv`;
+    $('startInfo').textContent = (calls ? `Zufällige Rufzeichen${S.callsDE ? ' aus Deutschland' : ''} bei ${tempo}.` : `${n} ${what} aktiv bei ${tempo}.`) + ` Zeitlimit ${String(S.timeLimit).replace('.', ',')} s.`;
+    $('startWarn').textContent = q ? 'Wähle in den Einstellungen mindestens zwei Q-Gruppen.' : 'Wähle in den Einstellungen mindestens zwei Zeichen mit unterschiedlichem Code.';
+    document.querySelectorAll('[data-content]').forEach(b => b.setAttribute('aria-checked', b.dataset.content === S.freeContent));
+    $('startWarn').hidden = ok;
+    $('btnStart').disabled = !ok;
+    const seq = kochSeq(), kl = kochLevel();
+    $('btnKoch').disabled = seq.length < 2;
+    $('kochInfo').textContent = seq.length < 2 ? 'Aktiviere in den Einstellungen mindestens zwei Zeichen.'
+      : `${kl} von ${seq.length} Zeichen freigeschaltet: ${seq.slice(0, kl).map(c => c.label).join(' ')}`;
+    $('btnAgain').disabled = G.mode === 'koch' ? seq.length < 2 : !ok;
+  }
+
+  // ---------- Blasen ----------
+  function layout(n) {
+    const W = field.clientWidth, H = field.clientHeight;
+    const top = 66, bottom = 66, side = 14;
+    const aw = Math.max(60, W - 2 * side), ah = Math.max(60, H - top - bottom);
+    let s = Math.min(Math.max(Math.sqrt(aw * ah / n) * 0.6, 54), 130, aw, ah);
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const pts = [];
+      let ok = true;
+      for (let i = 0; i < n && ok; i++) {
+        let placed = false;
+        for (let k = 0; k < 300; k++) {
+          const x = side + Math.random() * (aw - s), y = top + Math.random() * (ah - s);
+          if (pts.every(p => Math.hypot(p.x - x, p.y - y) >= s * 1.15)) { pts.push({ x, y }); placed = true; break; }
+        }
+        ok = placed;
+      }
+      if (ok) return { s, pts };
+      s *= 0.9;
+    }
+    // Fallback: Raster
+    const cols = Math.ceil(Math.sqrt(n * aw / ah)), rows = Math.ceil(n / cols);
+    s = Math.min(aw / cols, ah / rows) * 0.85;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const cx = side + (i % cols + 0.5) * aw / cols, cy = top + (Math.floor(i / cols) + 0.5) * ah / rows;
+      pts.push({ x: cx - s / 2, y: cy - s / 2 });
+    }
+    return { s, pts };
+  }
+
+  function spawn(chars) {
+    field.replaceChildren();
+    const { s, pts } = layout(chars.length);
+    G.bubbles = chars.map((c, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'bubble';
+      b.setAttribute('aria-label', 'Blase ' + c.label);
+      b.style.cssText = `left:${pts[i].x}px;top:${pts[i].y}px;--s:${s}px;animation-delay:${i * 40}ms;`;
+      const orb = document.createElement('span');
+      orb.className = 'orb';
+      orb.style.cssText = `--dx:${(3 + Math.random() * 5).toFixed(1)}px;--dy:${(4 + Math.random() * 6).toFixed(1)}px;--dur:${(1.8 + Math.random() * 1.6).toFixed(2)}s;--delay:-${(Math.random() * 3).toFixed(2)}s`;
+      orb.append(labelEl(c, 'lbl' + (c.label.length > 4 ? ' tiny' : c.label.length > 1 ? ' small' : '')));
+      b.append(orb);
+      const entry = { el: b, char: c };
+      b.addEventListener('pointerdown', e => { if (e.button === 0) { e.preventDefault(); onBubble(entry); } });
+      b.addEventListener('click', e => { if (e.detail === 0) onBubble(entry); }); // Tastatur (Enter/Leertaste)
+      field.append(b);
+      return entry;
+    });
+  }
+
+  function relayout() {
+    if (!G.bubbles.length) return;
+    const { s, pts } = layout(G.bubbles.length);
+    G.bubbles.forEach((b, i) => { b.el.style.left = pts[i].x + 'px'; b.el.style.top = pts[i].y + 'px'; b.el.style.setProperty('--s', s + 'px'); });
+  }
+
+  function finishBubbles(except, cls = 'leave') {
+    for (const b of G.bubbles) {
+      b.el.classList.add('done');
+      if (b !== except && !b.el.classList.contains('reveal')) b.el.classList.add(cls);
+    }
+  }
+
+  function floatText(entry, text, bad) {
+    const r = entry.el.getBoundingClientRect(), fr = field.getBoundingClientRect();
+    const f = document.createElement('div');
+    f.className = 'float' + (bad ? ' bad' : '');
+    f.textContent = text;
+    f.style.left = (r.left - fr.left + r.width / 2) + 'px';
+    f.style.top = (r.top - fr.top + r.height / 2) + 'px';
+    field.append(f);
+    setTimeout(() => f.remove(), 950);
+  }
+
+  function showToast(prefix, c) {
+    const t = $('toast');
+    const p = document.createElement('span'); p.textContent = prefix;
+    t.replaceChildren(p, labelEl(c, 'big'), codeEl(c.code));
+    if (c.meaning) { const m = document.createElement('span'); m.className = 'mean'; m.textContent = c.meaning; t.append(m); }
+    t.classList.add('show');
+  }
+  const hideToast = () => $('toast').classList.remove('show');
+  // Nach einem Treffer: Klartext-Bedeutung (Q-Gruppen)
+  function showMeaning(c) {
+    const t = $('toast');
+    const m = document.createElement('span'); m.className = 'mean'; m.textContent = c.meaning;
+    t.replaceChildren(labelEl(c, 'big'), m);
+    t.classList.add('show');
+  }
+
+  // ---------- Timer ----------
+  const timerFill = $('timerFill'), timerEl = $('timer');
+  function setTimer(frac) {
+    timerFill.style.transform = `scaleX(${Math.max(0, Math.min(1, frac))})`;
+    timerEl.classList.toggle('low', frac < 0.3);
+  }
+  function tick() {
+    if (G.state !== 'answer') return;
+    const limit = S.timeLimit * 1000;
+    const el = performance.now() - G.answerStart;
+    setTimer(1 - el / limit);
+    if (el >= limit) timeout();
+    else requestAnimationFrame(tick);
+  }
+
+  // ---------- Runden ----------
+  function startGame(mode = G.mode) {
+    G.mode = mode;
+    G.content = mode === 'koch' ? 'chars' : S.freeContent;
+    if (G.content !== 'calls' && distinctCount(currentPool()) < 2) return;
+    player.unlock();
+    Object.assign(G, { score: 0, lives: 3, level: 1, streak: 0, bestStreak: 0, hits: 0, times: [], missed: new Map(), target: null, window: [], pendingIntro: null });
+    for (const id of ['ovStart', 'ovOver', 'ovPause', 'ovIntro']) $(id).hidden = true;
+    if (mode === 'koch' && !kochProg.started) { kochProg.started = true; save(); G.pendingIntro = currentPool(); }
+    renderHud();
+    proceed();
+  }
+
+  // Nächste Runde – oder vorher ein neu freigeschaltetes Zeichen vorstellen
+  function proceed() {
+    if (G.pendingIntro) showIntro(G.pendingIntro); else startRound();
+  }
+
+  function showIntro(chars) {
+    G.round++;
+    G.state = 'intro';
+    $('tankctl').hidden = true;
+    G.pendingIntro = null;
+    G.introChars = chars;
+    G.bubbles = []; field.replaceChildren(); hideToast(); setTimer(0);
+    const first = chars.length > 1;
+    $('introTitle').textContent = first ? 'Deine ersten Zeichen' : 'Neues Zeichen';
+    $('introNote').textContent = first
+      ? 'Hör dir beide Zeichen ein paarmal an. Sobald du 90 % der letzten 20 Runden triffst, kommt das nächste dazu.'
+      : `Geschafft: 90 % in den letzten 20 Runden. Das ist dein ${kochLevel()}. Zeichen – hör es dir ein paarmal an.`;
+    $('introChars').replaceChildren(...chars.map(c => {
+      const d = document.createElement('div');
+      d.append(labelEl(c, 'introLbl'), codeEl(c.code));
+      return d;
+    }));
+    renderHud();
+    $('ovIntro').hidden = false;
+    $('btnIntroGo').focus();
+    playIntro();
+  }
+  function playIntro() {
+    const toks = [];
+    for (const c of G.introChars) for (let i = 0; i < 3; i++) toks.push(c.key, ' ');
+    toks.pop();
+    player.play(toks);
+  }
+  function introGo() {
+    if (G.state !== 'intro') return;
+    player.stop();
+    $('ovIntro').hidden = true;
+    startRound();
+  }
+
+  async function startRound() {
+    const id = ++G.round;
+    G.state = 'spawn';
+    $('tankctl').hidden = false;
+    hideToast();
+    setTimer(1);
+    let n, target, chars;
+    if (G.mode === 'free' && G.content === 'calls') {
+      n = Math.min(S.bubbles + G.level - 1, 8);
+      ({ target, chars } = callRound(n));
+    } else {
+      const p = currentPool();
+      const distinct = distinctCount(p);
+      const koch = G.mode === 'koch';
+      n = koch ? Math.min(p.length, 8, distinct) : Math.min(S.bubbles + G.level - 1, 10, distinct);
+      const candidates = p.length > 1 && G.target ? p.filter(c => c.key !== G.target.key) : p;
+      // Im Lernmodus kommt das zuletzt freigeschaltete Zeichen 2,5-mal so oft dran.
+      const newest = koch ? p[p.length - 1].key : null;
+      target = weightedPick(candidates, c => (S.adaptive ? weight(c) : 1) * (c.key === newest ? 2.5 : 1));
+      chars = [target];
+      let rest = p.filter(c => c.code !== target.code);
+      while (chars.length < n && rest.length) {
+        const c = S.similar ? weightedPick(rest, x => similarity(target, x)) : rand(rest);
+        chars.push(c);
+        rest = rest.filter(x => x.code !== c.code);
+      }
+    }
+    G.target = target;
+    spawn(shuffle(chars));
+
+    await new Promise(r => setTimeout(r, 450 + n * 40));
+    if (id !== G.round) return;
+    G.state = 'playing';
+    $('listen').classList.add('on');
+    const res = await player.play(tokensOf(target));
+    if (id !== G.round || !res.completed) return;
+    $('listen').classList.remove('on');
+    G.state = 'answer';
+    G.answerStart = player.lastEndPerf || performance.now();
+    requestAnimationFrame(tick);
+  }
+
+  function replay() {
+    if (G.state !== 'answer') return;
+    const id = G.round;
+    $('listen').classList.add('on');
+    player.play(tokensOf(G.target)).then(() => { if (id === G.round) $('listen').classList.remove('on'); });
+  }
+
+  function endRound() {
+    G.round++;
+    player.stop();
+    $('listen').classList.remove('on');
+    G.state = 'between';
+  }
+
+  function onBubble(entry) {
+    if (G.state !== 'playing' && G.state !== 'answer') return;
+    const now = performance.now();
+    if (entry.char.key === G.target.key) {
+      const t = G.state === 'answer' ? now - G.answerStart : 0;
+      endRound();
+      const f = Math.max(0, 1 - t / (S.timeLimit * 1000));
+      const pts = Math.round((20 + 80 * f) * (1 + Math.min(G.streak, 10) * 0.1) * (S.wpm / 20));
+      G.score += pts; G.hits++; G.streak++; G.times.push(t);
+      record(G.target.key, t);
+      G.bestStreak = Math.max(G.bestStreak, G.streak);
+      if (G.mode === 'koch') kochResult(true); else G.level = 1 + Math.floor(G.hits / 10);
+      entry.el.classList.add('pop');
+      finishBubbles(entry);
+      floatText(entry, '+' + fmt(pts));
+      if (G.target.meaning) showMeaning(G.target);
+      renderHud();
+      later(proceed, G.target.meaning ? 1400 : 620);
+    } else if (S.wrongCostsLife || G.mode === 'koch') {
+      confuse(G.target, entry.char);
+      endRound();
+      entry.el.classList.add('wrong');
+      const tgt = G.bubbles.find(b => b.char.key === G.target.key);
+      if (tgt) tgt.el.classList.add('reveal');
+      loseLife('Gesucht war');
+    } else {
+      confuse(G.target, entry.char);
+      G.score = Math.max(0, G.score - 10); G.streak = 0;
+      entry.el.classList.add('wrong', 'done');
+      floatText(entry, '−10', true);
+      setTimeout(() => entry.el.classList.add('leave'), 380);
+      renderHud();
+    }
+  }
+
+  function timeout() {
+    endRound();
+    const tgt = G.bubbles.find(b => b.char.key === G.target.key);
+    if (tgt) { tgt.el.classList.add('done', 'vanish'); }
+    finishBubbles(tgt);
+    loseLife('Zu langsam – das war');
+  }
+
+  function loseLife(msg) {
+    if (G.mode === 'koch') kochResult(false); else G.lives--;
+    G.streak = 0;
+    G.missed.set(G.target.key, (G.missed.get(G.target.key) || 0) + 1);
+    record(G.target.key, S.timeLimit * 1500);
+    setTimer(0);
+    showToast(msg, G.target);
+    renderHud();
+    later(() => {
+      for (const b of G.bubbles) if (!b.el.classList.contains('vanish')) b.el.classList.add('leave');
+      if (G.lives <= 0) gameOver(); else proceed();
+    }, 1500);
+  }
+
+  function gameOver() {
+    G.round++;
+    G.state = 'over';
+    $('tankctl').hidden = true;
+    player.stop();
+    hideToast();
+    $('listen').classList.remove('on');
+    field.replaceChildren(); G.bubbles = [];
+    const free = G.mode === 'free';
+    const prevBest = getBest();
+    const record = free && G.score > prevBest;
+    if (record) { setBest(G.score); save(); }
+    $('overTitle').textContent = free ? 'Spiel vorbei' : 'Sitzung beendet';
+    $('btnAgain').textContent = free ? 'Nochmal spielen' : 'Weiter üben';
+    $('overKoch').hidden = free;
+    if (!free) {
+      const seq = kochSeq(), kl = kochLevel();
+      $('overKoch').textContent = kl < seq.length
+        ? `Du übst mit ${kl} von ${seq.length} Zeichen. Als Nächstes kommt ${seq[kl].label}.`
+        : `Alle ${seq.length} aktiven Zeichen sind freigeschaltet.`;
+    }
+    $('finalScore').textContent = fmt(G.score);
+    $('newRecord').hidden = !record || G.score === 0;
+    $('fHits').textContent = G.hits;
+    $('fAvg').textContent = G.times.length ? secs(G.times.reduce((a, b) => a + b, 0) / G.times.length) : '–';
+    $('fStreak').textContent = G.bestStreak;
+    const list = [...G.missed.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    $('practiceWrap').hidden = !list.length;
+    $('practice').replaceChildren(...list.map(([k]) => {
+      const c = itemByKey(k) || E.makeItem(k), s = document.createElement('span');
+      if (c.meaning) s.title = c.meaning;
+      s.append(labelEl(c), codeEl(c.code, true));
+      return s;
+    }));
+    renderHud();
+    $('ovOver').hidden = false;
+    $('btnAgain').focus();
+  }
+
+  const running = () => ['spawn', 'playing', 'answer', 'between'].includes(G.state);
+  function pause() {
+    if (!running()) return;
+    G.round++;
+    player.stop();
+    $('listen').classList.remove('on');
+    hideToast();
+    G.state = 'paused';
+    $('tankctl').hidden = true;
+    $('ovPause').hidden = false;
+    $('btnResume').focus();
+  }
+  function resume() {
+    if (G.state !== 'paused') return;
+    $('ovPause').hidden = true;
+    player.unlock();
+    if (G.lives <= 0) gameOver(); else proceed();
+  }
+
+  // ---------- Einstellungen ----------
+  const dlg = $('dlg');
+  const RANGES = {
+    wpm: v => v + ' WpM',
+    effWpm: v => v >= S.wpm ? 'aus' : v + ' WpM',
+    freq: v => v + ' Hz',
+    volume: v => v + ' %',
+    timeLimit: v => String(v).replace('.', ',') + ' s',
+    bubbles: v => String(v),
+  };
+  function syncInputs() {
+    for (const k of Object.keys(RANGES)) { $(k).value = S[k]; $('o_' + k).textContent = RANGES[k](S[k]); }
+    $('effWpm').max = S.wpm;
+    $('wrongCostsLife').checked = S.wrongCostsLife;
+    $('adaptive').checked = S.adaptive;
+    $('similar').checked = S.similar;
+    $('callsDE').checked = S.callsDE;
+    const n = Object.keys(stats).length;
+    $('statsInfo').textContent = n ? `Daten zu ${n} Zeichen` : 'Noch keine Daten';
+    syncKoch();
+  }
+  function syncKoch() {
+    const seq = kochSeq(), kl = kochLevel(), r = $('kochLevel');
+    r.max = Math.max(2, seq.length);
+    r.value = kl;
+    $('o_kochLevel').textContent = `${Math.min(kl, seq.length)} von ${seq.length}`;
+    $('kochNext').textContent = kl < seq.length ? `Als Nächstes: ${seq[kl].label}` : 'Alle aktiven Zeichen sind freigeschaltet.';
+  }
+  $('kochLevel').addEventListener('input', e => {
+    kochProg.level = Number(e.target.value);
+    kochProg.started = true;
+    save(); syncKoch(); renderInfo(); renderHud();
+  });
+  for (const k of Object.keys(RANGES)) {
+    $(k).addEventListener('input', e => {
+      const v = Number(e.target.value);
+      if (k === 'wpm') {
+        const wasOff = S.effWpm >= S.wpm;
+        S.wpm = v;
+        if (wasOff || S.effWpm > v) S.effWpm = v;
+      } else S[k] = v;
+      syncInputs();
+      player.setOptions(audioOpts());
+      save(); renderInfo();
+    });
+  }
+  $('wrongCostsLife').addEventListener('change', e => { S.wrongCostsLife = e.target.checked; save(); });
+  $('adaptive').addEventListener('change', e => { S.adaptive = e.target.checked; save(); });
+  $('similar').addEventListener('change', e => { S.similar = e.target.checked; save(); });
+  $('callsDE').addEventListener('change', e => { S.callsDE = e.target.checked; save(); renderInfo(); });
+  $('btnResetStats').addEventListener('click', () => { stats = {}; confusions = {}; save(); syncInputs(); renderChars(); });
+  $('btnTest').addEventListener('click', () => { player.unlock(); player.play('PARIS'); });
+
+  function renderChars() {
+    const wrap = $('groups');
+    wrap.replaceChildren();
+    const active = new Set(S.active);
+    for (const g of E.GROUPS) {
+      const sec = document.createElement('section');
+      sec.className = 'group';
+      const head = document.createElement('div');
+      head.className = 'group-head';
+      const h = document.createElement('h4'); h.textContent = g.name;
+      const all = document.createElement('button'); all.className = 'mini'; all.textContent = 'Alle';
+      const none = document.createElement('button'); none.className = 'mini'; none.textContent = 'Keine';
+      all.addEventListener('click', () => setGroup(g.id, true));
+      none.addEventListener('click', () => setGroup(g.id, false));
+      head.append(h, all, none);
+      const chips = document.createElement('div'); chips.className = 'chips';
+      for (const c of E.byGroup(g.id)) {
+        const b = document.createElement('button');
+        b.className = 'chip';
+        b.dataset.key = c.key;
+        b.setAttribute('aria-pressed', active.has(c.key));
+        b.setAttribute('aria-label', c.label + (c.prosign ? ' (Betriebszeichen)' : ''));
+        const st = stats[c.key];
+        if (st && st.n) b.title = `Ø ${secs(st.avg)} nach ${st.n} Abfragen`;
+        b.append(labelEl(c), codeEl(c.code, true));
+        b.addEventListener('click', () => toggleChar(c.key));
+        chips.append(b);
+      }
+      sec.append(head, chips);
+      wrap.append(sec);
+    }
+    const p = pool();
+    $('activeCount').textContent = p.length + ' Zeichen aktiv';
+  }
+  function charsChanged() { save(); renderChars(); renderInfo(); syncKoch(); }
+  function toggleChar(k) {
+    const i = S.active.indexOf(k);
+    if (i >= 0) S.active.splice(i, 1); else S.active.push(k);
+    charsChanged();
+    const btn = [...$('groups').querySelectorAll('.chip')].find(b => b.dataset.key === k);
+    if (btn) btn.focus();
+  }
+  function setGroup(id, on) {
+    const keys = E.byGroup(id).map(c => c.key);
+    S.active = on ? [...new Set([...S.active, ...keys])] : S.active.filter(k => !keys.includes(k));
+    charsChanged();
+  }
+  $('btnDefaults').addEventListener('click', () => { S.active = [...E.DEFAULT_KEYS]; charsChanged(); });
+  $('btnAllChars').addEventListener('click', () => { S.active = E.CHARS.map(c => c.key); charsChanged(); });
+  $('btnNoChars').addEventListener('click', () => { S.active = []; charsChanged(); });
+
+  function renderQ() {
+    const active = new Set(S.activeQ);
+    $('qchips').replaceChildren(...Q_ITEMS.map(q => {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.dataset.key = q.key;
+      b.setAttribute('aria-pressed', active.has(q.key));
+      b.setAttribute('aria-label', `${q.label}: ${q.meaning}`);
+      const l = document.createElement('span'); l.textContent = q.label;
+      const m = document.createElement('span'); m.className = 'mean'; m.textContent = q.meaning;
+      b.append(l, m);
+      const st = stats[q.key];
+      if (st && st.n) b.title = `Ø ${secs(st.avg)} nach ${st.n} Abfragen`;
+      b.addEventListener('click', () => {
+        const i = S.activeQ.indexOf(q.key);
+        if (i >= 0) S.activeQ.splice(i, 1); else S.activeQ.push(q.key);
+        qChanged();
+        const btn = $('qchips').querySelector(`[data-key="${q.key}"]`);
+        if (btn) btn.focus();
+      });
+      return b;
+    }));
+    $('activeQCount').textContent = `${S.activeQ.length} Q-Gruppen aktiv`;
+  }
+  function qChanged() { save(); renderQ(); renderInfo(); }
+  $('btnQDefaults').addEventListener('click', () => { S.activeQ = [...Q_DEFAULT]; qChanged(); });
+  $('btnQAll').addEventListener('click', () => { S.activeQ = Q_ITEMS.map(q => q.key); qChanged(); });
+  $('btnQNone').addEventListener('click', () => { S.activeQ = []; qChanged(); });
+
+  document.querySelectorAll('[data-content]').forEach(b => b.addEventListener('click', () => {
+    S.freeContent = b.dataset.content;
+    if (!running() && G.state !== 'paused') G.content = S.freeContent;
+    save(); renderInfo(); renderHud();
+  }));
+
+  function openSettings() {
+    pause();
+    syncInputs(); renderChars(); renderQ();
+    dlg.showModal();
+  }
+  const closeSettings = () => { player.stop(); dlg.close(); };
+  document.querySelectorAll('[data-open-settings]').forEach(b => b.addEventListener('click', openSettings));
+  $('btnSettings').addEventListener('click', openSettings);
+  $('btnClose').addEventListener('click', closeSettings);
+  $('btnDone').addEventListener('click', closeSettings);
+  dlg.addEventListener('close', () => { player.stop(); renderInfo(); });
+
+  // ---------- Steuerung ----------
+  $('btnStart').addEventListener('click', () => startGame('free'));
+  $('btnKoch').addEventListener('click', () => startGame('koch'));
+  $('btnAgain').addEventListener('click', () => startGame(G.mode));
+  $('btnResume').addEventListener('click', resume);
+  $('btnRestart').addEventListener('click', () => startGame(G.mode));
+  $('btnQuit').addEventListener('click', () => { $('ovPause').hidden = true; gameOver(); });
+  $('btnIntroGo').addEventListener('click', introGo);
+  $('btnIntroPlay').addEventListener('click', playIntro);
+  $('btnReplay').addEventListener('click', replay);
+  $('btnPause').addEventListener('click', pause);
+  $('btnMenu').addEventListener('click', () => {
+    $('ovOver').hidden = true;
+    G.state = 'idle';
+    renderInfo();
+    $('ovStart').hidden = false;
+  });
+
+  document.addEventListener('keydown', e => {
+    if (dlg.open) return;
+    if (e.code === 'Space') {
+      if (e.target.closest && e.target.closest('button') && !running()) return; // Buttons normal auslösen
+      e.preventDefault();
+      if (G.state === 'answer') replay();
+      else if (G.state === 'paused') resume();
+      else if (G.state === 'intro') introGo();
+      else if (G.state === 'idle' || G.state === 'over') startGame(G.mode);
+    } else if (e.key === 'Escape') {
+      if (running()) pause(); else if (G.state === 'paused') resume();
+    }
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+  let rz;
+  window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(relayout, 120); });
+
+  renderHud();
+  renderInfo();
+  setTimer(0);
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
